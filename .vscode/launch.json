@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Shorter URL API",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/src/cmd",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PORT": "8080"
+      },
+      "console": "integratedTerminal"
+    }
+  ]
+}

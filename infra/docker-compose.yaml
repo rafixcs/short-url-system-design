@@ -1,0 +1,66 @@
+version: '3'
+services:
+  app:
+    build: 
+      context: ./
+      target: debug
+    container_name: app-be
+    depends_on:
+      - mongodb
+    networks:
+      - app-net
+    env_file:
+      - server.env
+    volumes:
+      - ./src:/app/src
+    restart: always
+    ports:
+      - "8080:8080"
+      - "2345:2345"
+    security_opt:
+      - "seccomp:unconfined"
+    environment:
+      PORT: ${PORT}
+
+  mongodb:
+    build:
+      context: .
+      dockerfile: mongodb.Dockerfile
+    container_name: mongodb
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE}
+
+      # Variables used by mongo-init.js
+      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD}
+
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --username \"$${MONGO_INITDB_ROOT_USERNAME}\" --password \"$${MONGO_INITDB_ROOT_PASSWORD}\" --authenticationDatabase admin --eval 'db.runCommand({ ping: 1 }).ok' | grep 1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge
+volumes:
+  images_volume:
+  mongodb_data:
+  mongodb_config:

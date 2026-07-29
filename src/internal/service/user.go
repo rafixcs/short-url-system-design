@@ -6,6 +6,7 @@ import (
 
 	"github.com/rafixcs/shorter-url-design-system/src/internal/domain"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
@@ -17,11 +18,16 @@ func NewUserService(repo domain.UserRepository) *UserService {
 }
 
 func (s *UserService) CreateUser(ctx context.Context, name, email, password string) (*domain.UserModel, error) {
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("hash password: %w", err)
+	}
+
 	user := &domain.UserModel{
 		ID:       primitive.NewObjectID(),
 		Name:     name,
 		Email:    email,
-		Password: password,
+		Password: string(passwordHash),
 	}
 
 	createdUser, err := s.repo.CreateUser(ctx, user)

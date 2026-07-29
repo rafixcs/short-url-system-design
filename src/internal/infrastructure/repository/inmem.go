@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 
 	"github.com/rafixcs/shorter-url-design-system/src/internal/domain"
@@ -63,4 +64,20 @@ func (r *InMemRepository) GetUser(ctx context.Context, userID string) (*domain.U
 	}
 
 	return user, nil
+}
+
+func (r *InMemRepository) GetUserByEmailOrName(ctx context.Context, email, name string) (*domain.UserModel, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, user := range r.users {
+		if email != "" && strings.EqualFold(user.Email, email) {
+			return user, nil
+		}
+		if name != "" && strings.EqualFold(user.Name, name) {
+			return user, nil
+		}
+	}
+
+	return nil, ErrUserNotFound
 }

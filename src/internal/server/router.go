@@ -9,7 +9,12 @@ import (
 	httptransport "github.com/rafixcs/shorter-url-design-system/src/internal/infrastructure/http"
 )
 
-func NewRouter(userHandler *httptransport.UserHandler, shorterHandler *httptransport.ShorterHandler) *chi.Mux {
+func NewRouter(
+	userHandler *httptransport.UserHandler,
+	shorterHandler *httptransport.ShorterHandler,
+	authHandler *httptransport.AuthHandler,
+	authMiddleware *httptransport.AuthMiddleware,
+) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.Logger)
@@ -29,13 +34,15 @@ func NewRouter(userHandler *httptransport.UserHandler, shorterHandler *httptrans
 	})
 
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Post("/auth/login", authHandler.Login)
+
 		r.Route("/users", func(r chi.Router) {
 			r.Post("/", userHandler.CreateUser)
-			r.Get("/{userID}", userHandler.GetUser)
+			r.With(authMiddleware.Authenticate).Get("/{userID}", userHandler.GetUser)
 		})
 
 		r.Route("/urls", func(r chi.Router) {
-			r.Post("/", shorterHandler.CreateShortUrl)
+			r.With(authMiddleware.Authenticate).Post("/", shorterHandler.CreateShortUrl)
 		})
 	})
 

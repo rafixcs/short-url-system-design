@@ -7,7 +7,6 @@ COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
 COPY ./src ./src
-COPY server.env /app/server.env
 
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o shorter-app ./src/cmd/main.go
 
@@ -46,7 +45,6 @@ WORKDIR /app
 EXPOSE 8080
 
 COPY --from=build /app/shorter-app /app/
-COPY --from=build /app/server.env /app/
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-ENTRYPOINT [ "/app/bifrost-app" ]
+ENTRYPOINT [ "/app/shorter-app" ]

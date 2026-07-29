@@ -25,13 +25,17 @@ func NewServer() *AppSever {
 
 func (a *AppSever) initializeServer() {
 	a.Port = env.GetString("PORT", "8080")
+	jwtSecret := env.GetString("JWT_SECRET", "development-only-change-me")
 
 	repo := repository.NewInMemRepository()
 	userService := service.NewUserService(repo)
 	shorterService := service.NewService(repo)
+	authService := service.NewAuthService(repo, jwtSecret, 24*time.Hour)
 	userHandler := httptransport.NewUserHandler(userService)
 	shorterHandler := httptransport.NewShorterHandler(shorterService)
-	handler := NewRouter(userHandler, shorterHandler)
+	authHandler := httptransport.NewAuthHandler(authService)
+	authMiddleware := httptransport.NewAuthMiddleware(authService)
+	handler := NewRouter(userHandler, shorterHandler, authHandler, authMiddleware)
 
 	a.server = http.Server{
 		Addr:         fmt.Sprintf(":%s", a.Port),

@@ -47,7 +47,7 @@ func (h *ShorterHandler) RedirectToSourceUrl(w http.ResponseWriter, r *http.Requ
 
 	longURL, err := h.service.GetLongUrl(r.Context(), linkID)
 	if err != nil {
-		log.Printf("[RedirectToSourceURL]: Failed to get long url: %v", err)
+		log.Printf("[RedirectToSourceURL]: Failed to get long URL: %v", err)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}

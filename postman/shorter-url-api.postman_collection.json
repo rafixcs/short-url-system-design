@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "7501bd28-435d-48f1-9d6f-16280558ac44",
     "name": "Shorter URL API",
-    "description": "Collection for testing all Shorter URL API endpoints. Run Create User before requests that use {{user_id}}.",
+    "description": "Collection for testing all Shorter URL API endpoints. Run Create User and Login before protected requests.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -13,6 +13,11 @@
     },
     {
       "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
       "value": "",
       "type": "string"
     }
@@ -51,6 +56,69 @@
                   "pm.test(\"API is alive\", function () {",
                   "    pm.expect(pm.response.json().status).to.eql(\"its alive!\");",
                   "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"rafael@example.com\",\n  \"password\": \"change-me-123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticates by email or user name and saves the JWT in auth_token."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const response = pm.response.json();",
+                  "pm.test(\"JWT was returned\", function () {",
+                  "    pm.expect(response.access_token).to.be.a(\"string\").and.not.empty;",
+                  "});",
+                  "",
+                  "if (response.access_token) {",
+                  "    pm.collectionVariables.set(\"auth_token\", response.access_token);",
+                  "}"
                 ]
               }
             }
@@ -124,6 +192,16 @@
           "request": {
             "method": "GET",
             "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
             "url": {
               "raw": "{{base_url}}/api/v1/users/{{user_id}}",
               "host": [
@@ -166,6 +244,16 @@
           "name": "Create Short URL",
           "request": {
             "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
             "header": [
               {
                 "key": "Content-Type",

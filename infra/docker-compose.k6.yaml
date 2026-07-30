@@ -1,0 +1,30 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: infra/service.Dockerfile
+      target: prd
+    environment:
+      PORT: "8080"
+      JWT_SECRET: "k6-development-only-secret"
+    networks:
+      - performance
+    ports:
+      - "${APP_PORT:-8080}:8080"
+
+  k6:
+    image: grafana/k6:latest
+    depends_on:
+      - app
+    environment:
+      BASE_URL: http://app:8080
+      TEST_TYPE: ${TEST_TYPE:-smoke}
+    networks:
+      - performance
+    volumes:
+      - ../tests/k6:/scripts:ro
+    command: run /scripts/api.js
+
+networks:
+  performance:
+    driver: bridge

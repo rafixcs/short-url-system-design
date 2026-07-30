@@ -308,6 +308,47 @@ go test ./...
 go vet ./...
 ```
 
+## Testes de carga com k6
+
+Os testes de performance sobem a imagem de produção da API e executam o k6 em
+uma rede Docker isolada. Não é necessário instalar o k6 localmente; apenas
+Docker com o plugin Compose.
+
+Execute primeiro o smoke test para validar o ambiente e o fluxo funcional:
+
+```bash
+make perf-smoke
+```
+
+Os demais perfis aumentam a taxa de chegada gradualmente:
+
+```bash
+make perf-load
+make perf-stress
+```
+
+Ao terminar, remova os containers e a rede:
+
+```bash
+make perf-down
+```
+
+O script `tests/k6/api.js` prepara um usuário autenticado e uma URL curta antes
+da medição. O smoke executa uma iteração funcional. Nos perfis de carga, o
+tráfego é distribuído entre redirecionamento (70%), status da aplicação (20%) e
+consulta autenticada de usuário (10%). O teste falha quando há erro funcional,
+mais de 1% de requests HTTP com falha, latência p95 acima de 500 ms, p99 acima
+de 1 s ou iterações descartadas.
+
+Os perfis podem ser executados diretamente pelo Compose usando `TEST_TYPE`:
+
+```bash
+TEST_TYPE=load docker compose -f infra/docker-compose.k6.yaml run --rm k6
+```
+
+Nesta etapa, a aplicação continua usando o repositório em memória. Portanto,
+os resultados ainda não incluem o custo de persistência no MongoDB.
+
 O teste E2E em `src/internal/server/router_e2e_test.go` inicia um servidor HTTP
 temporário e valida o fluxo completo:
 

@@ -1,4 +1,5 @@
-FROM mongo:8.0
+ARG MONGO_VERSION=8.0.4
+FROM mongo:${MONGO_VERSION}
 
 COPY mongo-init.js /docker-entrypoint-initdb.d/mongo-init.js
 

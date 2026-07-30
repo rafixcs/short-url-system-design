@@ -2,15 +2,14 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"sync"
 
 	"github.com/rafixcs/shorter-url-design-system/src/internal/domain"
 )
 
-var ErrShortURLNotFound = errors.New("short URL not found")
-var ErrUserNotFound = errors.New("user not found")
+var ErrShortURLNotFound = domain.ErrShortURLNotFound
+var ErrUserNotFound = domain.ErrUserNotFound
 
 type InMemRepository struct {
 	mu    sync.RWMutex
@@ -43,12 +42,18 @@ func (r *InMemRepository) GetLongUrl(ctx context.Context, shortURL string) (*dom
 		}
 	}
 
-	return nil, ErrShortURLNotFound
+	return nil, domain.ErrShortURLNotFound
 }
 
 func (r *InMemRepository) CreateUser(ctx context.Context, user *domain.UserModel) (*domain.UserModel, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	for _, storedUser := range r.users {
+		if strings.EqualFold(storedUser.Email, user.Email) || strings.EqualFold(storedUser.Name, user.Name) {
+			return nil, domain.ErrUserAlreadyExists
+		}
+	}
 
 	r.users[user.ID.Hex()] = user
 	return user, nil
@@ -60,7 +65,7 @@ func (r *InMemRepository) GetUser(ctx context.Context, userID string) (*domain.U
 
 	user, ok := r.users[userID]
 	if !ok {
-		return nil, ErrUserNotFound
+		return nil, domain.ErrUserNotFound
 	}
 
 	return user, nil
@@ -79,5 +84,5 @@ func (r *InMemRepository) GetUserByEmailOrName(ctx context.Context, email, name 
 		}
 	}
 
-	return nil, ErrUserNotFound
+	return nil, domain.ErrUserNotFound
 }

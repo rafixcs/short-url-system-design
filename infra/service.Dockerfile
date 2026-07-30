@@ -28,13 +28,10 @@ RUN go mod download && go mod verify
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
 COPY ./src ./src
-COPY ./server.env ./server.env
 RUN go build -v -o /usr/local/bin/app ./src/cmd/main.go
 
 ### Run the Delve debugger ###
-COPY ./dlv.sh /
-RUN chmod +x /dlv.sh
-ENTRYPOINT [ "/dlv.sh" ]
+ENTRYPOINT ["dlv", "debug", "./src/cmd", "--headless=true", "--listen=:2345", "--api-version=2", "--accept-multiclient", "--continue"]
 
 ################# Production Image #######################
 

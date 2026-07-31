@@ -2,15 +2,19 @@ package domain
 
 import (
 	"context"
+	"errors"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+var ErrUserNotFound = errors.New("user not found")
+var ErrUserAlreadyExists = errors.New("user already exists")
+
 type UserModel struct {
-	ID       primitive.ObjectID `json:"id"`
-	Name     string             `json:"name"`
-	Email    string             `json:"email"`
-	Password string             `json:"password"`
+	ID       primitive.ObjectID `bson:"_id" json:"id"`
+	Name     string             `bson:"name" json:"name"`
+	Email    string             `bson:"email" json:"email"`
+	Password string             `bson:"password" json:"password"`
 }
 
 type UserService interface {

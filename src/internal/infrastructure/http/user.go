@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rafixcs/shorter-url-design-system/src/internal/domain"
-	"github.com/rafixcs/shorter-url-design-system/src/internal/infrastructure/repository"
 	"github.com/rafixcs/shorter-url-design-system/src/pkg/utils"
 )
 
@@ -34,6 +33,10 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		reqBody.Email,
 		reqBody.Password,
 	)
+	if errors.Is(err, domain.ErrUserAlreadyExists) {
+		http.Error(w, "user already exists", http.StatusConflict)
+		return
+	}
 	if err != nil {
 		log.Printf("[CreateUser]: failed to create user: %v", err)
 		http.Error(w, "failed to create user", http.StatusInternalServerError)
@@ -54,7 +57,7 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := h.service.GetUser(r.Context(), userID)
-	if errors.Is(err, repository.ErrUserNotFound) {
+	if errors.Is(err, domain.ErrUserNotFound) {
 		http.Error(w, "user not found", http.StatusNotFound)
 		return
 	}

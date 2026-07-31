@@ -14,7 +14,7 @@ Clean Architecture.
 - criação de códigos curtos com seis caracteres;
 - validação básica da URL original;
 - redirecionamento do código curto para a URL original;
-- repositório concorrente em memória protegido por `sync.RWMutex`;
+- persistência em MongoDB com índices únicos para usuários e URLs curtas;
 - injeção de dependências entre repositório, serviços e handlers;
 - middlewares de log, request ID, recuperação de panic e CORS;
 - coleção Postman com variáveis e testes automáticos;
@@ -28,7 +28,7 @@ Clean Architecture.
 - [golang-jwt/jwt](https://github.com/golang-jwt/jwt) para tokens JWT
 - [golang.org/x/crypto/bcrypt](https://pkg.go.dev/golang.org/x/crypto/bcrypt)
   para hash e verificação de senhas
-- MongoDB Driver, reservado para a futura implementação do repositório MongoDB
+- MongoDB Driver para conexão e persistência
 
 ## Arquitetura
 
@@ -45,7 +45,7 @@ Service (regra de negócio)
     ↓
 Repository interface
     ↓
-In-memory repository
+MongoDB repository
 ```
 
 As interfaces são definidas na camada de domínio. A composição concreta das
@@ -67,21 +67,24 @@ src/
     └── utils/                          # utilitários HTTP
 ```
 
-O servidor cria uma única instância do repositório em memória e a compartilha
-entre os serviços de usuários e URLs. Os handlers recebem os serviços por
-construtor e dependem das interfaces do domínio.
+O servidor abre uma única conexão com o MongoDB, cria o adapter de repositório e
+o compartilha entre os serviços de usuários, autenticação e URLs. Os serviços
+continuam dependendo apenas das interfaces do domínio. No encerramento da
+aplicação, o servidor HTTP e a conexão com o banco são finalizados de forma
+graciosa.
 
 ## Executando localmente
 
 ### Pré-requisitos
 
-- Go 1.26.5 ou versão compatível com o `go.mod`.
+- Go 1.26.5 ou versão compatível com o `go.mod`;
+- MongoDB disponível localmente ou via Docker.
 
 Baixe as dependências e execute a aplicação:
 
 ```bash
 go mod download
-go run ./src/cmd
+MONGO_URI='mongodb://localhost:27017' MONGO_DATABASE='shorter_url' go run ./src/cmd
 ```
 
 Por padrão, a API estará disponível em:
@@ -90,11 +93,26 @@ Por padrão, a API estará disponível em:
 http://localhost:8080
 ```
 
-A porta e a chave usada para assinar os JWTs podem ser configuradas pelas
-variáveis `PORT` e `JWT_SECRET`:
+A porta, a chave usada para assinar os JWTs e o MongoDB são configurados pelas
+variáveis `PORT`, `JWT_SECRET`, `MONGO_URI` e `MONGO_DATABASE`.
+
+Para subir a API e o MongoDB com as credenciais de desenvolvimento:
 
 ```bash
-PORT=9090 JWT_SECRET='use-a-long-random-secret' go run ./src/cmd
+docker compose --env-file infra/.env -f infra/docker-compose.yaml up --build
+```
+
+O ambiente Docker usa MongoDB `8.0.4` por compatibilidade com hosts executando
+Linux kernel 6.19 ou posterior. A versão pode ser alterada pela variável
+`MONGO_VERSION`; quando o host estiver em um kernel corrigido, prefira uma
+versão atual do MongoDB.
+
+Em uma execução local, por exemplo:
+
+```bash
+PORT=9090 JWT_SECRET='use-a-long-random-secret' \
+MONGO_URI='mongodb://localhost:27017' MONGO_DATABASE='shorter_url' \
+go run ./src/cmd
 ```
 
 Quando `JWT_SECRET` não é informada, a aplicação usa uma chave apenas para
@@ -307,6 +325,47 @@ Execute todos os testes e a análise estática:
 go test ./...
 go vet ./...
 ```
+
+## Testes de carga com k6
+
+Os testes de performance sobem a imagem de produção da API e executam o k6 em
+uma rede Docker isolada. Não é necessário instalar o k6 localmente; apenas
+Docker com o plugin Compose.
+
+Execute primeiro o smoke test para validar o ambiente e o fluxo funcional:
+
+```bash
+make perf-smoke
+```
+
+Os demais perfis aumentam a taxa de chegada gradualmente:
+
+```bash
+make perf-load
+make perf-stress
+```
+
+Ao terminar, remova os containers e a rede:
+
+```bash
+make perf-down
+```
+
+O script `tests/k6/api.js` prepara um usuário autenticado e uma URL curta antes
+da medição. O smoke executa uma iteração funcional. Nos perfis de carga, o
+tráfego é distribuído entre redirecionamento (70%), status da aplicação (20%) e
+consulta autenticada de usuário (10%). O teste falha quando há erro funcional,
+mais de 1% de requests HTTP com falha, latência p95 acima de 500 ms, p99 acima
+de 1 s ou iterações descartadas.
+
+Os perfis podem ser executados diretamente pelo Compose usando `TEST_TYPE`:
+
+```bash
+TEST_TYPE=load docker compose -f infra/docker-compose.k6.yaml run --rm k6
+```
+
+Nesta etapa, a aplicação continua usando o repositório em memória. Portanto,
+os resultados ainda não incluem o custo de persistência no MongoDB.
 
 O teste E2E em `src/internal/server/router_e2e_test.go` inicia um servidor HTTP
 temporário e valida o fluxo completo:

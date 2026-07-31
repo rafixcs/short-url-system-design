@@ -1,36 +1,40 @@
-version: '3'
 services:
   app:
-    build: 
-      context: ./
+    build:
+      context: ..
+      dockerfile: infra/service.Dockerfile
       target: debug
     container_name: app-be
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     networks:
       - app-net
     env_file:
       - server.env
+    environment:
+      MONGO_URI: "mongodb://${MONGO_APP_USERNAME}:${MONGO_APP_PASSWORD}@mongodb:27017/${MONGO_DATABASE}?authSource=${MONGO_DATABASE}"
+      MONGO_DATABASE: "${MONGO_DATABASE}"
     volumes:
-      - ./src:/app/src
+      - ../src:/app/src
     restart: always
     ports:
       - "8080:8080"
       - "2345:2345"
     security_opt:
       - "seccomp:unconfined"
-    environment:
-      PORT: ${PORT}
-
   mongodb:
     build:
       context: .
       dockerfile: mongodb.Dockerfile
+      args:
+        MONGO_VERSION: "${MONGO_VERSION:-8.0.4}"
     container_name: mongodb
     restart: unless-stopped
     ports:
       - "${MONGO_PORT:-27017}:27017"
     environment:
+      GLIBC_TUNABLES: glibc.pthread.rseq=0
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       MONGO_INITDB_DATABASE: ${MONGO_DATABASE}

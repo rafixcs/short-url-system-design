@@ -1,0 +1,69 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: infra/service.Dockerfile
+      target: prd
+    environment:
+      PORT: "8080"
+      JWT_SECRET: "k6-development-only-secret"
+      MONGO_URI: "mongodb://${K6_MONGO_APP_USERNAME:-k6_user}:${K6_MONGO_APP_PASSWORD:-k6_password}@mongodb:27017/${K6_MONGO_DATABASE:-shorter_url_k6}?authSource=${K6_MONGO_DATABASE:-shorter_url_k6}"
+      MONGO_DATABASE: "${K6_MONGO_DATABASE:-shorter_url_k6}"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - performance
+    ports:
+      - "${APP_PORT:-8080}:8080"
+
+  mongodb:
+    build:
+      context: .
+      dockerfile: mongodb.Dockerfile
+      args:
+        MONGO_VERSION: "${MONGO_VERSION:-8.0.4}"
+    environment:
+      GLIBC_TUNABLES: glibc.pthread.rseq=0
+      MONGO_INITDB_ROOT_USERNAME: "${K6_MONGO_ROOT_USERNAME:-root}"
+      MONGO_INITDB_ROOT_PASSWORD: "${K6_MONGO_ROOT_PASSWORD:-k6_root_password}"
+      MONGO_INITDB_DATABASE: "${K6_MONGO_DATABASE:-shorter_url_k6}"
+      MONGO_APP_USERNAME: "${K6_MONGO_APP_USERNAME:-k6_user}"
+      MONGO_APP_PASSWORD: "${K6_MONGO_APP_PASSWORD:-k6_password}"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --username \"$${MONGO_INITDB_ROOT_USERNAME}\" --password \"$${MONGO_INITDB_ROOT_PASSWORD}\" --authenticationDatabase admin --eval 'db.runCommand({ ping: 1 }).ok' | grep 1"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - performance
+    volumes:
+      - mongodb_performance_data:/data/db
+      - mongodb_performance_config:/data/configdb
+
+  k6:
+    image: grafana/k6:latest
+    depends_on:
+      app:
+        condition: service_started
+    environment:
+      BASE_URL: http://app:8080
+      TEST_TYPE: ${TEST_TYPE:-smoke}
+    networks:
+      - performance
+    volumes:
+      - ../tests/k6:/scripts:ro
+    command: run /scripts/api.js
+
+networks:
+  performance:
+    driver: bridge
+
+volumes:
+  mongodb_performance_data:
+  mongodb_performance_config:
